@@ -1,3 +1,4 @@
 openai-apikey.txt
 virtual /
-__pycache__ /
+__pycache__/
+*.pyc
