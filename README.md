@@ -6,3 +6,4 @@ TODO:
 - [ ] Measure uncertainty on re deciding
 - [ ] Bias Measure
 - [ ] Bias Elimination
+- [ ] Use resume dataset, add columns for age, gender, race, country and measure bias
