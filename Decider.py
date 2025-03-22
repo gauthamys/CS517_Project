@@ -29,6 +29,7 @@ class Decider:
       ])
       
       # Return the trimmed response which should be "Yes" or "No"
+      print('responded: ' + response.message.content.strip())
       return response.message.content.strip().replace('.', '')
 
 if __name__ == "__main__":
