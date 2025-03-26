@@ -6,7 +6,8 @@ class Decider:
     def __init__(self, job_desc):
         system = """
           You are a seasoned recruiter evaluating a candidate for a job opening. You will be given the job description and the candidate's profile.
-          Please respond in one word: "Yes" if we you think we can move forward with the candidate, "No" if you think we cannot, "Maybe" if you are unsure.
+          You MUST respond in only one of 3 ways: 
+          Respond only "2" if you think we can move forward with the candidate, "0" if you think we cannot, "1" if you are unsure.
         """
         create(model='hiring_agent', from_='llama3.2', system=system)
         self.model = 'hiring_agent'
@@ -39,7 +40,7 @@ if __name__ == "__main__":
     decider = Decider(job_desc)
     df = ResumeLoader.load()
 
-    candidate = df.iloc[0]['Resume']
+    candidate = df.iloc[342]['Resume']
     result = decider.decide(candidate)
     print(result)
     

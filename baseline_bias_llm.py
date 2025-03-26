@@ -2,6 +2,7 @@ from Decider import Decider
 from util.Data import StackOverflowLoader, ResumeLoader
 import pandas as pd
 import numpy as np
+from scipy.stats import chi2_contingency
 
 def generate_decisions_with_races():
     print('loaded dataset')
@@ -34,23 +35,28 @@ def generate_decisions_with_races():
     """)
 
     # Generate decisions using the decider
-    df['col3'] = df.apply(lambda row: decider.decide(row['Resume']), axis=1)
+    df['decision'] = df.apply(lambda row: decider.decide(row['Resume']), axis=1)
     
     # Randomise the ground truth label column for testing fairness metrics
     # Here 1 represents a positive ground truth and 0 represents a negative ground truth.
-    df['Label'] = np.random.randint(0, 2, size=len(df))
+    df['Truth'] = np.random.randint(0, 2, size=len(df))
 
     df.to_csv('resume_decided.csv') 
 
 
 def bias_analysis():
-    import pandas as pd
-    import numpy as np
-    from scipy.stats import chi2_contingency
 
     # Load the CSV file with decisions and ground truth labels
     df = pd.read_csv('resume_decided.csv')
+
+    def convert_decision(val):
+        try:
+            return int(val)
+        except Exception:
+            return 1
     
+    df['decision'] = df['decision'].apply(convert_decision)
+
     print("Bias Analysis using Fairness Metrics")
     print("=====================================")
     
@@ -58,23 +64,23 @@ def bias_analysis():
     print("\nOverall Race Distribution:")
     print(df['Race'].value_counts())
     print("\nOverall Decision Distribution (col3):")
-    print(df['col3'].value_counts())
+    print(df['decision'].value_counts())
     
     # Demographic Parity: The rate of positive predictions per race group
     # (Assuming col3 is binary with 1 for a positive decision and 0 for negative)
-    dp = df.groupby('Race')['col3'].mean()
+    dp = df.groupby('Race')['decision'].mean()
     print("\nDemographic Parity (Positive Prediction Rate by Race):")
     print(dp)
     
     # Check if ground truth labels are available for further fairness metrics
-    if 'Label' not in df.columns:
+    if 'Truth' not in df.columns:
         print("\nGround truth column 'Label' not found. Cannot compute predictive parity and equalized odds.")
         return
     
     # Predictive Parity: Precision by race (TP / (TP + FP))
     def precision(group):
-        tp = ((group['col3'] == 1) & (group['Label'] == 1)).sum()
-        pred_pos = (group['col3'] == 1).sum()
+        tp = ((group['decision'] == 1) & (group['Truth'] == 1)).sum()
+        pred_pos = (group['decision'] == 1).sum()
         return tp / pred_pos if pred_pos > 0 else np.nan
 
     pp = df.groupby('Race').apply(precision)
@@ -83,13 +89,13 @@ def bias_analysis():
     
     # Equalized Odds: Compute True Positive Rate (TPR) and False Positive Rate (FPR) by race
     def true_positive_rate(group):
-        tp = ((group['col3'] == 1) & (group['Label'] == 1)).sum()
-        fn = ((group['col3'] == 0) & (group['Label'] == 1)).sum()
+        tp = ((group['decision'] == 1) & (group['Truth'] == 1)).sum()
+        fn = ((group['decision'] == 0) & (group['Truth'] == 1)).sum()
         return tp / (tp + fn) if (tp + fn) > 0 else np.nan
 
     def false_positive_rate(group):
-        fp = ((group['col3'] == 1) & (group['Label'] == 0)).sum()
-        tn = ((group['col3'] == 0) & (group['Label'] == 0)).sum()
+        fp = ((group['decision'] == 1) & (group['Truth'] == 0)).sum()
+        tn = ((group['decision'] == 0) & (group['Truth'] == 0)).sum()
         return fp / (fp + tn) if (fp + tn) > 0 else np.nan
 
     tpr = df.groupby('Race').apply(true_positive_rate)
@@ -102,7 +108,7 @@ def bias_analysis():
     print(fpr)
     
     # Optional: Conduct a chi-squared test on the prediction outcomes
-    contingency_table = pd.crosstab(df['Race'], df['col3'])
+    contingency_table = pd.crosstab(df['Race'], df['decision'])
     chi2, p, dof, expected = chi2_contingency(contingency_table)
     print("\nChi-squared Test for Independence between Race and Decision Outcome:")
     print(f"Chi-squared: {chi2:.2f}, Degrees of Freedom: {dof}, p-value: {p:.4f}")
@@ -115,5 +121,7 @@ def bias_analysis():
     print("Max difference in FPR (Equalized Odds):", fpr.max() - fpr.min())
 
 if __name__ == "__main__":
-    generate_decisions_with_races()
+    import os
+    if not os.path.exists('resume_decided.csv'):
+        generate_decisions_with_races()
     bias_analysis()
